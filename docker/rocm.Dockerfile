@@ -499,8 +499,8 @@ RUN if [ -n "$UBUNTU_MIRROR" ]; then \
         > /etc/apt/apt.conf.d/80-net-hardening
 
 # Fix hipDeviceGetName returning empty / generic names.
-# amdgpu.ids maps PCI IDs to marketing names. The 7.2.0 base was built with amdgpu-install and already has it. The 7.2.4
-# ubuntu24.04 base installs the `rocm` apt metapackage and does not; noble's
+# amdgpu.ids maps PCI IDs to marketing names. The 7.2.0 base was built with
+# amdgpu-install and already has it. The 7.2.4 ubuntu24.04 base installs the `rocm` apt metapackage and does not; noble's
 # distro table has MI300 (74A*) but no MI355X (75A3), so gfx950-rocm724 would
 # otherwise report "AMD Radeon Graphics" and miss every name-keyed config.
 # The ROCm 10.0.0 flavors need nothing here: their libdrm comes from the pip SDK, which
@@ -529,6 +529,7 @@ RUN set -eux; \
       *rocm720*) \
         echo "ROCm 7.2.0 (GPU_ARCH=${GPU_ARCH}): libdrm-amdgpu packages already present, skipping"; \
         ;; \
+      *) echo "No amdgpu.ids handling for GPU_ARCH=${GPU_ARCH}"; exit 1 ;; \
     esac
 
 
@@ -559,6 +560,7 @@ RUN set -eux; \
         fi; \
         cd / && python3 -c "import amdsmi; print('[amdsmi]', amdsmi.__file__)"; \
         ;; \
+      *) echo "No amdsmi install for GPU_ARCH=${GPU_ARCH}"; exit 1 ;; \
     esac
 
 # -----------------------
@@ -728,7 +730,7 @@ RUN pip list --format=freeze | grep -E '^(torch|triton)' > /tmp/constraints.txt
 
 # srt_hip pins compressed-tensors==0.15.0, which requires torch<2.11 and so
 # cannot be satisfied on the ROCm 7.2.4/1000 torch 2.11 stack. The *_rocm724
-# extras carry a 0.16.0 pin instead; all other flavors keep the extras they used before.
+# extras carry a 0.16.0 pin instead; rocm720 keeps the plain srt_hip extras.
 RUN cd sglang \
     && cp python/pyproject_other.toml python/pyproject.toml \
     && case "${GPU_ARCH}" in \
@@ -748,6 +750,7 @@ RUN cd sglang \
                     all_extras="all_hip" ; \
                     CONS="-c /tmp/constraints.txt" ; \
                     ;; \
+         *) echo "No SGLang extras for GPU_ARCH=${GPU_ARCH}"; exit 1 ;; \
        esac \
     && if [ "$BUILD_TYPE" = "srt" ]; then \
          export SETUPTOOLS_SCM_PRETEND_VERSION="${SETUPTOOLS_SCM_PRETEND_VERSION}" && python -m pip --no-cache-dir install $CONS -e "python[${srt_extras}]"; \
